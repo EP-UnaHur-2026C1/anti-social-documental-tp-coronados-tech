@@ -21,6 +21,7 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true },
     birthDate: { type: Date, required: true },
     gender: { type: String, required: true },
+    following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   },
   defaultSchemaOptions,
 );
