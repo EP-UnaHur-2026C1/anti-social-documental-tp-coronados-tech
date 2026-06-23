@@ -6,7 +6,8 @@ const path = require("path");
 const i18n = require("i18n");
 const connectDB = require("./config/db");
 const errorMiddleware = require("./middlewares/error.middleware");
-const filterPostCommentsMiddleware = require("./middlewares/filterPostComments.middleware");
+const commentRoutes = require("./routes/comment.routes");
+const postImageRoutes = require("./routes/postImage.routes");
 
 const PORT = process.env.PORT || 3001;
 const locale = process.env.IDIOMA === "es" ? process.env.IDIOMA : "es";
@@ -38,8 +39,11 @@ if (enableSwagger) {
 }
 
 app.use("/users", usersRouter);
-app.use("/posts", filterPostCommentsMiddleware, postsRouter);
+app.use("/posts", postsRouter); 
 app.use("/tags", tagsRouter);
+app.use("/api/comments", commentRoutes);
+app.use("/api/post-images", postImageRoutes);
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 app.use(errorMiddleware);
 
