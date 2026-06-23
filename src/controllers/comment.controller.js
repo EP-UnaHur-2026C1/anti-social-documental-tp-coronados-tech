@@ -3,7 +3,6 @@ const commentService = require("../services/comment.service");
 const createComment = async (req, res, next) => {
     try {
         const { content, post_id } = req.body;
-        // Asumiendo que el ID del usuario logueado viene de un middleware de auth en req.user
         const user_id = req.user?._id || req.body.user_id; 
 
         const comment = await commentService.create({ content, user_id, post_id });

@@ -1,16 +1,14 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
 
-const commentSchema = new Schema(
+const postImageSchema = new Schema(
     {
-        content: {
+        filename: {
             type: String,
             required: true,
-            trim: true,
         },
-        user_id: {
-            type: Schema.Types.ObjectId,
-            ref: "User",
+        path: {
+            type: String,
             required: true,
         },
         post_id: {
@@ -25,5 +23,5 @@ const commentSchema = new Schema(
     }
 );
 
-const Comment = mongoose.model("Comment", commentSchema);
-module.exports = Comment;
+const PostImage = mongoose.model("PostImage", postImageSchema);
+module.exports = PostImage;

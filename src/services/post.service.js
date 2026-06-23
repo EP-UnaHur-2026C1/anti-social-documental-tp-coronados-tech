@@ -1,5 +1,5 @@
 const { Post, User, PostImage, Comment, Tag } = require("../models");
-const { removeAllByPostId } = require("./postimage.service");
+const { removeAllByPostId } = require("./postImage.service");
 const postCache = require("./postCache.service");
 
 const listCacheKey = (user_id) => (user_id !== undefined ? `posts:user:${user_id}` : "posts:all");

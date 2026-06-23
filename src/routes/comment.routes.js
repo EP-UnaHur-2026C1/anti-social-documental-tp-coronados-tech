@@ -1,6 +1,5 @@
 const express = require("express");
 const router = express.Router();
-// Asegurate de que apunte a comment.controller en minúscula y con la "s" correcta si la usaste
 const commentController = require("../controllers/comment.controller"); 
 
 // Rutas del CRUD
