@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { Post, User, PostImage } = require("../models");
+const filterPostCommentsMiddleware = require("../middlewares/filterPostComments.middleware");
 
 const {
   createPost,
@@ -15,7 +16,7 @@ const {
   createPostImage,
   updatePostImage,
   deletePostImage,
-} = require("../controllers/postimage.controller");
+} = require("../controllers/postImage.controller");
 
 const schemaValidatorMiddleware = require("../middlewares/validations/schema.middleware");
 const querySchemaValidatorMiddleware =
@@ -34,6 +35,7 @@ router.get(
   "/",
   querySchemaValidatorMiddleware(getAllPostsQuerySchema),
   existValidateMiddleware(User, "user_id", { optional: true }),
+  filterPostCommentsMiddleware,
   getAllPosts,
 );
 
