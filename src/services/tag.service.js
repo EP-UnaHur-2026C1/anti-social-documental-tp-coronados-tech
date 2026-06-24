@@ -15,9 +15,14 @@ const attachPosts = async (tags) => {
     return result;
 };
 
-const invalidateCacheForPosts = async (posts = []) => {
+const refreshTagsInCache = async (posts = []) => {
     for (const post of posts) {
-        postCache.deletePost(post.id ?? post._id);
+        const id = post.id ?? post._id;
+        const fullPost = await Post.findById(id).populate("tags", "name");
+        if (!fullPost) continue;
+
+        const tags = fullPost.tags?.map((tag) => tag.toJSON()) ?? [];
+        await postCache.updatePostFields(id, { tags });
     }
 };
 
@@ -55,7 +60,16 @@ const create = async ({ name, post_id }) => {
             post.tags.push(tag._id);
             await post.save();
         }
-        postCache.deletePost(post_id);
+
+        await postCache.mutatePost(post_id, (cached) => {
+            if (!Array.isArray(cached.tags)) {
+                cached.tags = [];
+            }
+            const exists = cached.tags.some((item) => String(item._id ?? item.id) === String(tag._id));
+            if (!exists) {
+                cached.tags.push(tag.toObject());
+            }
+        });
     }
 
     return { tag: await findById(tag._id), created };
@@ -69,7 +83,7 @@ const update = async (id, { name }) => {
     const posts = await Post.find({ tags: id }).select("_id");
     tag.name = normalizeName(name);
     await tag.save();
-    await invalidateCacheForPosts(posts);
+    await refreshTagsInCache(posts);
 
     return findById(id);
 };
@@ -81,7 +95,7 @@ const remove = async (id) => {
     const posts = await Post.find({ tags: id });
     await Post.updateMany({ tags: id }, { $pull: { tags: id } });
     await tag.deleteOne();
-    await invalidateCacheForPosts(posts);
+    await refreshTagsInCache(posts);
     return true;
 };
 

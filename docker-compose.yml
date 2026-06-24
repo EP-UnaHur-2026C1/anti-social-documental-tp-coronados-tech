@@ -1,7 +1,7 @@
 services:
   mongodb:
     image: mongo:7
-    container_name: antisocial-mongodb
+    container_name: antisocial-doc-mongodb
     restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-admin}
@@ -25,11 +25,50 @@ services:
       retries: 10
       start_period: 10s
     networks:
-      - mongo-net
+      - antisocial-doc-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: antisocial-doc-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - antisocial-doc-net
+
+  app:
+    build: .
+    container_name: antisocial-doc-api
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3001}:3001"
+    env_file:
+      - .env
+    environment:
+      PORT: 3001
+      MONGO_URL: mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-admin1234}@mongodb:27017/antiSocial?authSource=admin
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: production
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - antisocial-doc-net
 
   mongo-express:
     image: mongo-express:1.0.2-20
-    container_name: antisocial-mongo-express
+    container_name: antisocial-doc-mongo-express
     restart: unless-stopped
     depends_on:
       mongodb:
@@ -42,10 +81,12 @@ services:
       ME_CONFIG_MONGODB_URL: mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-admin1234}@mongodb:27017/?authSource=admin
       ME_CONFIG_BASICAUTH: "false"
     networks:
-      - mongo-net
+      - antisocial-doc-net
 
 networks:
-  mongo-net:
+  antisocial-doc-net:
 
 volumes:
   mongo_data:
+  redis_data:
+  uploads_data:

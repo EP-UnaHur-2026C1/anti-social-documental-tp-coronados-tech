@@ -59,7 +59,7 @@ const serializePost = async (post) => {
 
 const findAll = async ({ user_id } = {}) => {
     const cacheKey = listCacheKey(user_id);
-    const cached = postCache.get(cacheKey);
+    const cached = await postCache.get(cacheKey);
     if (cached) return cached;
 
     const filter = user_id ? { user_id } : {};
@@ -69,20 +69,20 @@ const findAll = async ({ user_id } = {}) => {
     ]);
     const serialized = await attachRelations(posts);
 
-    postCache.set(cacheKey, serialized);
+    await postCache.set(cacheKey, serialized);
     return serialized;
 };
 
 const findById = async (id) => {
     const cacheKey = `post:${id}`;
-    const cached = postCache.get(cacheKey);
+    const cached = await postCache.get(cacheKey);
     if (cached) return cached;
 
     const post = await Post.findById(id);
     if (!post) return null;
 
     const serialized = await serializePost(post);
-    postCache.set(cacheKey, serialized);
+    await postCache.set(cacheKey, serialized);
     return serialized;
 };
 
@@ -90,8 +90,9 @@ const create = async ({ description, user_id, tags }) => {
     const tagIds = tags?.length ? await resolveTags(tags) : [];
     const post = await Post.create({ description, user_id, tags: tagIds });
 
-    postCache.deleteAll();
-    return findById(post._id);
+    const serialized = await findById(post._id);
+    await postCache.addPostToLists(serialized);
+    return serialized;
 };
 
 const update = async (id, { description, tags }) => {
@@ -108,7 +109,17 @@ const update = async (id, { description, tags }) => {
     }
 
     await post.save();
-    postCache.deletePost(id);
+
+    const fields = {};
+    if (description !== undefined) {
+        fields.description = description;
+    }
+    if (tags !== undefined) {
+        fields.tags = post.tags?.length
+            ? (await Tag.find({ _id: { $in: post.tags } }).select("name")).map((tag) => tag.toJSON())
+            : [];
+    }
+    await postCache.updatePostFields(id, fields);
 
     return findById(id);
 };
@@ -120,7 +131,7 @@ const remove = async (id) => {
     await Comment.deleteMany({ post_id: id });
     await removeAllByPostId(id);
     await post.deleteOne();
-    postCache.deletePost(id);
+    await postCache.removePostFromCaches(id);
     return true;
 };
 

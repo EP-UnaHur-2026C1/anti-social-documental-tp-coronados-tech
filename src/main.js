@@ -3,8 +3,10 @@ dotenv.config();
 
 const express = require("express");
 const path = require("path");
+const fs = require("fs");
 const i18n = require("i18n");
 const connectDB = require("./config/db");
+const { connectRedis } = require("./config/redis");
 const errorMiddleware = require("./middlewares/error.middleware");
 const commentRoutes = require("./routes/comment.routes");
 const postImageRoutes = require("./routes/postImage.routes");
@@ -32,10 +34,15 @@ app.use(i18n.init);
 app.use(express.json());
 
 if (enableSwagger) {
-    const swaggerUi = require("swagger-ui-express");
-    const YAML = require("yamljs");
-    const swaggerDocument = YAML.load(path.join(__dirname, "../docs/swagger.yaml"));
-    app.use("/swagger", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+    const swaggerPath = path.join(__dirname, "../docs/swagger.yaml");
+    if (fs.existsSync(swaggerPath)) {
+        const swaggerUi = require("swagger-ui-express");
+        const YAML = require("yamljs");
+        const swaggerDocument = YAML.load(swaggerPath);
+        app.use("/swagger", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+    } else {
+        console.warn("Swagger no disponible: falta docs/swagger.yaml");
+    }
 }
 
 app.use("/users", usersRouter);
@@ -48,12 +55,13 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 app.use(errorMiddleware);
 
 connectDB()
+    .then(() => connectRedis())
     .then(() => {
         app.listen(PORT, () => {
             console.log(`App iniciada en el puerto ${PORT}`);
         });
     })
     .catch((err) => {
-        console.error("No se pudo conectar a MongoDB", err.message);
+        console.error("No se pudo iniciar la aplicación:", err.message);
         process.exit(1);
     });
