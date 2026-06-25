@@ -34,16 +34,7 @@ const getRedis = () => {
     return client;
 };
 
-const disconnectRedis = async () => {
-    if (client) {
-        await client.quit();
-        client = null;
-    }
-};
-
 module.exports = {
     connectRedis,
     getRedis,
-    disconnectRedis,
-    isCacheEnabled,
 };

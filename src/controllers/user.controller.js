@@ -1,6 +1,7 @@
 const HTTP = require("../config/HttpCode");
 const { User } = require("../models");
 const followerService = require("../services/follower.service");
+const { sendValidationError } = require("../helpers/validationError");
 
 const createUser = async (req, res) => {
   const user = await User.create(req.body);
@@ -50,9 +51,12 @@ const followUser = async (req, res) => {
   const result = await followerService.follow(id, follower_id);
 
   if (result?.selfFollow) {
-    return res.status(HTTP.BAD_REQUEST).json({
-      message: res.__("cannot_follow_self"),
-    });
+    return sendValidationError(
+      res,
+      HTTP.BAD_REQUEST,
+      "follower_id",
+      res.__("cannot_follow_self"),
+    );
   }
 
   res.status(HTTP.CREATED).json({

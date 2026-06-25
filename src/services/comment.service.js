@@ -1,5 +1,5 @@
 const { Comment } = require("../models");
-const postCache = require("./postCache.service");
+const { emitPostEvent, POST_EVENTS } = require("../events/postEvents");
 
 const serializeCommentForPostCache = async (comment) => {
     await comment.populate("user_id", "nickname name lastName");
@@ -14,7 +14,7 @@ const findAll = async ({ post_id } = {}) => {
 const create = async ({ content, user_id, post_id }) => {
     const comment = await Comment.create({ content, user_id, post_id });
     const serialized = await serializeCommentForPostCache(comment);
-    await postCache.addComment(post_id, serialized);
+    await emitPostEvent(POST_EVENTS.COMMENT_CREATED, { postId: post_id, comment: serialized });
     return comment.populate("user_id", "nickname name lastName");
 };
 
@@ -28,7 +28,11 @@ const update = async (id, { content }) => {
     await comment.save();
 
     const serialized = await serializeCommentForPostCache(comment);
-    await postCache.updateComment(comment.post_id, id, serialized);
+    await emitPostEvent(POST_EVENTS.COMMENT_UPDATED, {
+        postId: comment.post_id,
+        commentId: id,
+        comment: serialized,
+    });
 
     return comment.populate("user_id", "nickname name lastName");
 };
@@ -37,7 +41,7 @@ const remove = async (id) => {
     const comment = await Comment.findById(id);
     const postId = comment.post_id;
     await comment.deleteOne();
-    await postCache.removeComment(postId, id);
+    await emitPostEvent(POST_EVENTS.COMMENT_REMOVED, { postId, commentId: id });
 };
 
 module.exports = {

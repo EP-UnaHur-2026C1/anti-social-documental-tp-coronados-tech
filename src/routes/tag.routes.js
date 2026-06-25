@@ -12,6 +12,8 @@ const schemaValidatorMiddleware = require("../middlewares/validations/schema.mid
 const querySchemaValidatorMiddleware =
   require("../middlewares/validations/schema.middleware").querySchemaValidatorMiddleware;
 const existValidateMiddleware = require("../middlewares/validations/exist.middleware");
+const uniqueValidateMiddleware =
+  require("../middlewares/validations/exist.middleware").uniqueValidateMiddleware;
 const objectIdParamValidateMiddleware = require("../middlewares/validations/objectId.middleware");
 const {
   tagSchema,
@@ -26,9 +28,12 @@ router.get(
   getAllTags,
 );
 
+const normalizeTagName = (value) => value.trim().toLowerCase();
+
 router.post(
   "/",
   schemaValidatorMiddleware(tagSchema),
+  uniqueValidateMiddleware(Tag, "name", { normalize: normalizeTagName }),
   existValidateMiddleware(Post, "post_id", { optional: true }),
   createTag,
 );
@@ -45,6 +50,11 @@ router.patch(
   objectIdParamValidateMiddleware("id"),
   existValidateMiddleware(Tag, "id"),
   schemaValidatorMiddleware(updateTagSchema),
+  uniqueValidateMiddleware(Tag, "name", {
+    normalize: normalizeTagName,
+    excludeParam: "id",
+    optional: true,
+  }),
   updateTag,
 );
 

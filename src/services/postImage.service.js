@@ -1,19 +1,17 @@
 const { PostImage } = require("../models");
 const fs = require("fs");
-const postCache = require("./postCache.service");
+const { emitPostEvent, POST_EVENTS } = require("../events/postEvents");
 
 const create = async ({ filename, path, post_id, postId }) => {
     const pid = post_id ?? postId;
     const image = await PostImage.create({ filename, path, post_id: pid });
-    await postCache.addPostImage(pid, image.toObject());
+    await emitPostEvent(POST_EVENTS.POST_IMAGE_CREATED, { postId: pid, image: image.toObject() });
     return image;
 };
 
 const findByPostId = async (postId) => {
     return PostImage.find({ post_id: postId });
 };
-
-const findById = (id) => PostImage.findById(id);
 
 const update = async (id, { postId, filename, path, newPostId }) => {
     const postImage = await PostImage.findOne({ _id: id, post_id: postId });
@@ -31,9 +29,18 @@ const update = async (id, { postId, filename, path, newPostId }) => {
 
     const imageJson = postImage.toObject();
     if (targetPostId.toString() !== previousPostId.toString()) {
-        await postCache.movePostImage(previousPostId, targetPostId, id, imageJson);
+        await emitPostEvent(POST_EVENTS.POST_IMAGE_MOVED, {
+            fromPostId: previousPostId,
+            toPostId: targetPostId,
+            imageId: id,
+            image: imageJson,
+        });
     } else {
-        await postCache.updatePostImage(targetPostId, id, imageJson);
+        await emitPostEvent(POST_EVENTS.POST_IMAGE_UPDATED, {
+            postId: targetPostId,
+            imageId: id,
+            image: imageJson,
+        });
     }
 
     return postImage;
@@ -59,13 +66,12 @@ const remove = async (id, { postId }) => {
         fs.unlinkSync(path);
     }
     await postImage.deleteOne();
-    await postCache.removePostImage(post_id, id);
+    await emitPostEvent(POST_EVENTS.POST_IMAGE_REMOVED, { postId: post_id, imageId: id });
 };
 
 module.exports = {
     create,
     findByPostId,
-    findById,
     update,
     removeAllByPostId,
     remove,

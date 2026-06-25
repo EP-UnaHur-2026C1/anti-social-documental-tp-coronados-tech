@@ -42,18 +42,7 @@ const deletePostImage = async (req, res) => {
   });
 };
 
-const uploadImage = async (req, res) => {
-  const { post_id } = req.body;
-  const image = await postImageService.create({
-    filename: req.file.filename,
-    path: req.file.path,
-    post_id,
-  });
-  res.status(HTTP.CREATED).json(image);
-};
-
 module.exports = {
-  uploadImage,
   createPostImage,
   getPostImagesByPost,
   updatePostImage,

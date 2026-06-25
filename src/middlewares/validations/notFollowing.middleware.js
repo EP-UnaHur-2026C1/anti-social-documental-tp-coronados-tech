@@ -2,25 +2,25 @@ const HTTP = require("../../config/HttpCode");
 const { User } = require("../../models");
 const { sendValidationError } = require("../../helpers/validationError");
 
-const alreadyFollowingMiddleware = async (req, res, next) => {
+const notFollowingMiddleware = async (req, res, next) => {
   const followingId = req.params.id;
-  const followerId = req.body.follower_id;
+  const followerId = req.params.follower_id;
 
   const follower = await User.findById(followerId);
-  const alreadyFollowing = follower?.following?.some(
+  const isFollowing = follower?.following?.some(
     (id) => id.toString() === followingId.toString(),
   );
 
-  if (alreadyFollowing) {
+  if (!isFollowing) {
     return sendValidationError(
       res,
       HTTP.CONFLICT,
       "follower_id",
-      res.__("already_following"),
+      res.__("not_following"),
     );
   }
 
   next();
 };
 
-module.exports = alreadyFollowingMiddleware;
+module.exports = notFollowingMiddleware;

@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
-const { Schema } = mongoose;
+const { defaultSchemaOptions } = require("./schemaOptions");
 
-const postImageSchema = new Schema(
+const postImageSchema = new mongoose.Schema(
     {
         filename: {
             type: String,
@@ -12,15 +12,12 @@ const postImageSchema = new Schema(
             required: true,
         },
         post_id: {
-            type: Schema.Types.ObjectId,
+            type: mongoose.Schema.Types.ObjectId,
             ref: "Post",
             required: true,
         },
     },
-    {
-        timestamps: true,
-        versionKey: false,
-    }
+    defaultSchemaOptions,
 );
 
 const PostImage = mongoose.model("PostImage", postImageSchema);

@@ -7,9 +7,11 @@ const fs = require("fs");
 const i18n = require("./config/i18n");
 const connectDB = require("./config/db");
 const { connectRedis } = require("./config/redis");
+const { initCacheStore } = require("./config/cache");
+const registerPostCacheListener = require("./listeners/postCache.listener");
 const errorMiddleware = require("./middlewares/error.middleware");
+const serializeResponseMiddleware = require("./middlewares/serializeResponse.middleware");
 const commentRoutes = require("./routes/comment.routes");
-const postImageRoutes = require("./routes/postImage.routes");
 
 const usersRouter = require("./routes/user.routes");
 const postsRouter = require("./routes/post.routes");
@@ -22,6 +24,7 @@ const enableSwagger = process.env.NODE_ENV !== "production" || process.env.ENABL
 
 app.use(i18n.init);
 app.use(express.json());
+app.use(serializeResponseMiddleware);
 
 if (enableSwagger) {
     const swaggerPath = path.join(__dirname, "../docs/swagger.yaml");
@@ -38,14 +41,17 @@ if (enableSwagger) {
 app.use("/users", usersRouter);
 app.use("/posts", postsRouter);
 app.use("/tags", tagsRouter);
-app.use("/api/comments", commentRoutes);
-app.use("/api/post-images", postImageRoutes);
+app.use("/comments", commentRoutes);
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 app.use(errorMiddleware);
 
 connectDB()
     .then(() => connectRedis())
+    .then(() => {
+        initCacheStore();
+        registerPostCacheListener();
+    })
     .then(() => {
         app.listen(PORT, () => {
             console.log(`App iniciada en el puerto ${PORT}`);

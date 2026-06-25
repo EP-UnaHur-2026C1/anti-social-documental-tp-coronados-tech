@@ -92,6 +92,7 @@ router.get(
   "/:id",
   objectIdParamValidateMiddleware("id"),
   existValidateMiddleware(Post, "id"),
+  filterPostCommentsMiddleware,
   getPostById,
 );
 

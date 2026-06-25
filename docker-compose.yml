@@ -58,6 +58,7 @@ services:
       NODE_ENV: production
     volumes:
       - uploads_data:/app/uploads
+      - ./src:/app/src
     depends_on:
       mongodb:
         condition: service_healthy

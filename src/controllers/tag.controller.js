@@ -3,8 +3,8 @@ const tagService = require("../services/tag.service");
 
 const createTag = async (req, res) => {
   const { name, post_id } = req.body;
-  const { tag, created } = await tagService.create({ name, post_id });
-  res.status(created ? HTTP.CREATED : HTTP.OK).json(tag);
+  const tag = await tagService.create({ name, post_id });
+  res.status(HTTP.CREATED).json(tag);
 };
 
 const getAllTags = async (req, res) => {

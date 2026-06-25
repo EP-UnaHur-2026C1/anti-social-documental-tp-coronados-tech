@@ -1,74 +1,311 @@
-[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/r_d7sOXe)
-# UnaHur - Red Anti-Social - 2026 - C1
+# UnaHur Anti-Social Net — Coronados Tech
 
-Se solicita el modelado y desarrollo de un sistema backend para una red social llamada **“UnaHur Anti-Social Net”**, inspirada en plataformas populares que permiten a los usuarios realizar publicaciones y recibir comentarios sobre las mismas.
+Backend REST para **UnaHur Anti-Social Net**, una red social donde los usuarios publican posts, comentan, etiquetan contenido y siguen a otros usuarios. Trabajo Práctico de la materia **Estrategias de Persistencia** (2026, C1).
 
-![Imagen](./assets/ANTI-SOCIALNET.jpeg)
+## Descripción
 
-# Contexto del Proyecto
+API desarrollada con **Node.js** y **Express**, persistiendo datos en **MongoDB** (modelo documental con relaciones referenciadas) y utilizando **Redis** como capa de caché para las consultas de publicaciones. El proyecto incluye validaciones con **Joi**, mensajes internacionalizados en español, carga de imágenes en el servidor y orquestación completa con **Docker Compose**.
 
-En una primera reunión con los sponsors del proyecto, se definieron los siguientes requerimientos para el desarrollo de un **MVP (Producto Mínimo Viable)**:
+## Funcionalidades implementadas
 
-- El sistema debe permitir que un usuario registrado realice una publicación (post), incluyendo **obligatoriamente una descripción**. De forma opcional, se podrán asociar **una o más imágenes** a dicha publicación.
+### Requerimientos del MVP
 
-- Las publicaciones pueden recibir **comentarios** por parte de otros usuarios.
+- **Usuarios**: registro, consulta, actualización y eliminación. `nickname` y `email` únicos.
+- **Posts**: publicaciones con descripción obligatoria, asociadas a un usuario y con soporte para múltiples etiquetas.
+- **Imágenes de post**: carga, actualización (incluyendo mover entre posts) y eliminación. Archivos almacenados en `uploads/` y servidos en `/uploads`.
+- **Comentarios**: CRUD completo sobre publicaciones.
+- **Tags**: CRUD con nombres normalizados (minúsculas). Asociación a posts al crear o desde el body del post.
+- **Filtrado de comentarios antiguos**: en las rutas de lectura de posts, los comentarios con más de `X` meses no se devuelven. Configurable con `MESES` (por defecto 6) o el query param `?meses=N`.
 
-- Las publicaciones pueden estar asociadas a **etiquetas (tags)**. Una misma etiqueta puede estar vinculada a múltiples publicaciones.
+### Bonus
 
-- Es importante que los **comentarios más antiguos que X meses** (valor configurable mediante variables de entorno, por ejemplo, 6 meses) **no se muestren** en la visualización de los posteos.
+- **Upload de imágenes** con Multer (jpg, jpeg, png, webp — máx. 5 MB).
+- **Sistema de seguidores**: cada usuario mantiene un array `following` con referencias a otros usuarios. Endpoints para seguir, dejar de seguir y listar seguidores/seguidos.
+- **Caché de posts con Redis**: las lecturas de posts se cachean y se mantienen sincronizadas mediante un sistema de eventos (`EventEmitter`) que actualiza o invalida la caché ante cambios en comentarios, imágenes, tags o el propio post.
 
-####
+## Stack tecnológico
 
-# Entidades y Reglas de Negocio
+| Tecnología | Uso |
+|---|---|
+| Node.js 20 | Runtime |
+| Express 5 | Framework HTTP |
+| Mongoose 9 | ODM para MongoDB |
+| Redis 7 | Caché de publicaciones |
+| Joi | Validación de request bodies y query params |
+| Multer | Upload de archivos |
+| i18n | Mensajes de error y respuesta en español |
+| Docker Compose | MongoDB, Redis, API y Mongo Express |
+| Swagger UI | Documentación interactiva de la API |
 
-Los sponsors definieron los siguientes nombres y descripciones para las entidades:
+## Modelo de datos
 
-- **User**: Representa a los usuarios registrados en el sistema. El campo `nickName` debe ser **único** y funcionará como identificador principal del usuario.
+Se optó por **relaciones referenciadas** entre colecciones independientes:
 
-- **Post**: Publicación realizada por un usuario en una fecha determinada que contiene el texto que desea publicar. Puede tener **cero o más imágenes** asociadas. Debe contemplarse la posibilidad de **agregar o eliminar imágenes** posteriormente.
+```
+User ──< Post ──< Comment
+  │       │
+  │       ├──< PostImage
+  │       └──> Tag (array de refs en Post)
+  └──> User (following[])
+```
 
-- **Post_Images**: Entidad que registra las imágenes asociadas a los posts. Para el MVP, solo se requiere almacenar la **URL de la imagen alojada**.
+| Colección | Campos principales |
+|---|---|
+| `users` | nickname (único), name, lastName, email (único), password, birthDate, gender, following[] |
+| `posts` | description, user_id, tags[] |
+| `comments` | content, user_id, post_id |
+| `postimages` | filename, path, post_id |
+| `tags` | name (único, lowercase) |
 
-- **Comment**: Comentario que un usuario puede realizar sobre una publicación. Incluye la fecha en la que fue realizado y una indicación de si está **visible o no**, dependiendo de la configuración (X meses).
+Todos los modelos incluyen `createdAt` / `updatedAt` y serializan `_id` como `id` en las respuestas JSON.
 
-- **Tag**: Etiqueta que puede ser asignada a un post. Una etiqueta puede estar asociada a **muchos posts**, y un post puede tener **múltiples etiquetas**.
+## Arquitectura
 
-# Requerimientos Técnicos
+```
+src/
+├── main.js                  # Punto de entrada
+├── config/                  # DB, Redis, caché, i18n
+├── models/                  # Schemas de Mongoose
+├── schemas/                 # Validaciones Joi
+├── routes/                  # Definición de endpoints
+├── controllers/             # Capa HTTP (una responsabilidad por handler)
+├── services/                # Lógica de negocio
+├── middlewares/             # Validaciones, upload, filtro de comentarios, errores
+├── events/                  # EventEmitter para sincronización de caché
+├── listeners/               # Listeners que actualizan Redis ante eventos
+├── cache/                   # RedisCacheStore / NoOpCacheStore
+├── helpers/                 # Utilidades compartidas
+└── locales/                 # Traducciones (es)
+```
 
-1. **Modelado de Datos**
+**Flujo de caché (lectura):** al consultar posts (`GET /posts`, `GET /posts/:id`), el servicio busca primero en Redis. Si no hay hit, lee de MongoDB, enriquece el documento (usuario, tags, imágenes, comentarios) y lo guarda en caché con un TTL configurable.
 
-   - Diseñar el modelo documental que represtente todas las entidades definidas por los sponsor del proyecto. Queda a su criterio si usan relaciones embebidas o relaciones referenciadas a otros documentos.
+### Sincronización de caché por eventos
 
-### Ejemplo referenciadas
+Para mantener Redis coherente sin invalidar toda la caché en cada escritura, se implementó un patrón **Observer / Pub-Sub** con el `EventEmitter` nativo de Node.js:
 
-![referenciadas](./assets/Referenciada.png)
+- **Emisores:** los servicios de negocio (`post`, `comment`, `postImage`, `tag`) persisten en MongoDB y emiten un evento al terminar (`COMMENT_CREATED`, `POST_IMAGE_REMOVED`, `TAG_ADDED_TO_POST`, etc.).
+- **Listener:** `postCache.listener.js` escucha esos eventos y delega en `postCache.service.js` la actualización puntual de las entradas afectadas (post individual y listas `posts:all` / `posts:user:{id}`).
+- **Ventaja:** los `GET /posts` siguen respondiendo desde caché aunque haya comentarios, imágenes o tags nuevos, sin reconsultar MongoDB en cada lectura.
 
-2. **Desarrollo del Backend**
+```mermaid
+flowchart LR
+    A[Servicio de negocio] -->|escribe| B[(MongoDB)]
+    A -->|emitPostEvent| C[postEvents]
+    C -->|notifica| D[postCache.listener]
+    D -->|actualiza| E[(Redis)]
+    F[GET /posts] -->|lee| E
+    F -.->|miss| B
+```
 
-   - Crear los **endpoints CRUD** necesarios para cada entidad.
+Eventos disponibles en `src/events/postEvents.js`:
 
-   - Implementar las rutas necesarias para gestionar las relaciones entre entidades (por ejemplo: asociar imágenes a un post, etiquetas a una publicación, etc.).
+| Evento | Disparado cuando |
+|---|---|
+| `COMMENT_CREATED` / `UPDATED` / `REMOVED` | Se crea, edita o elimina un comentario |
+| `POST_IMAGE_CREATED` / `UPDATED` / `MOVED` / `REMOVED` | Se sube, modifica, mueve o borra una imagen |
+| `TAG_ADDED_TO_POST` | Se asocia un tag a un post |
+| `POST_FIELDS_UPDATED` | Cambian campos del post (descripción, tags) |
+| `POST_ADDED_TO_LISTS` | Se crea un post nuevo |
+| `POST_REMOVED` | Se elimina un post |
 
-   - Desarrollar las validaciones necesarias para asegurar la integridad de los datos (schemas, validaciones de integridad referencial).
+## Requisitos previos
 
-   - Desarrollar las funciones controladoras con una única responsabiliad evitando realizar comprobaciones innecesarias en esta parte del código.
+- [Node.js](https://nodejs.org/) 20+
+- [Docker](https://www.docker.com/) y Docker Compose (recomendado)
 
-3. **Configuración y Portabilidad**
+## Instalación y ejecución
 
-   - La configuración de las variables del motor deben ser por configuración e instalación de dependencias adecuadas.
+### Con Docker (recomendado)
 
-   - El sistema debe permitir configurar el **puerto de ejecución y variables de entorno** fácilmente.
+```bash
+# 1. Copiar variables de entorno
+cp .env.example .env
 
-4. **Documentación**
+# 2. Levantar todos los servicios
+npm run docker:up
 
-   - Generar la documentación de la API utilizando **Swagger (formato YAML)**, incluyendo todos los endpoints definidos.
+# 3. Ver logs
+npm run docker:logs
+```
 
-5. **Colecciones de Prueba**
+Servicios disponibles:
 
-   - Entregar las colecciones necesarias para realizar pruebas (por ejemplo, colecciones de Postman o archivos JSON de ejemplo).
+| Servicio | URL |
+|---|---|
+| API | http://localhost:3001 |
+| Swagger UI | http://localhost:3001/swagger |
+| Mongo Express | http://localhost:8081 |
+| MongoDB | localhost:27017 |
+| Redis | localhost:6379 |
 
-# Bonus
+Para detener los contenedores:
 
-- Hace el upload de las imganes que se asocian a un POST que lo guarden en una carpeta de imagenes dentro del servidor web.
-- ¿Cómo modelarías que un usuario pueda "seguir" a otros usuarios, y a su vez ser seguido por muchos? Followers
-- Con la información de los post no varia muy seguido que estrategias podrian utilizar la que la información no sea constantemente consultada desde la base de datos.
+```bash
+npm run docker:down
+```
+
+### Sin Docker (desarrollo local)
+
+```bash
+# 1. Instalar dependencias
+npm install
+
+# 2. Configurar .env (ver sección siguiente)
+cp .env.example .env
+
+# 3. Tener MongoDB y Redis corriendo localmente
+
+# 4. Iniciar en modo desarrollo
+npm run dev
+```
+
+## Variables de entorno
+
+Copiar `.env.example` a `.env` y ajustar según el entorno. A continuación, qué hace cada variable y dónde se usa.
+
+### Servidor
+
+| Variable | Descripción | Default |
+|---|---|---|
+| `PORT` | Puerto HTTP en el que escucha la API Express. | `3001` |
+| `NODE_ENV` | Entorno de ejecución. En `production`, Swagger queda deshabilitado salvo que `ENABLE_SWAGGER=true`. Docker Compose lo setea en `production`. | — |
+
+### Aplicación
+
+| Variable | Descripción | Default |
+|---|---|---|
+| `MESES` | Cantidad de meses hacia atrás a partir de los cuales los comentarios **dejan de mostrarse** al leer posts (`GET /posts`, `GET /posts/:id`). Se puede sobreescribir por request con `?meses=N`. Si no se define, no se filtra. | `6` |
+| `IDIOMA` | Locale de los mensajes de error y respuestas traducibles (i18n). Actualmente solo hay traducciones en `es`. | `es` |
+| `ENABLE_SWAGGER` | Si es `true`, expone la documentación interactiva en `/swagger` aunque `NODE_ENV` sea `production`. En desarrollo, Swagger se habilita siempre que exista `docs/swagger.yaml`. | `true` |
+
+### Base de datos
+
+| Variable | Descripción | Default |
+|---|---|---|
+| `MONGO_URL` | Connection string completo de MongoDB. Incluye usuario, contraseña, host, nombre de base (`antiSocial`) y `authSource`. La app lo usa en `src/config/db.js` para conectar con Mongoose. | `mongodb://admin:admin1234@localhost:27017/antiSocial?authSource=admin` |
+| `MONGO_ROOT_USERNAME` | Usuario administrador de MongoDB. **Solo lo usa Docker Compose** al crear el contenedor de MongoDB y al configurar Mongo Express. | `admin` |
+| `MONGO_ROOT_PASSWORD` | Contraseña del usuario root de MongoDB. Misma lógica que la anterior; debe coincidir con las credenciales del `MONGO_URL`. | `admin1234` |
+
+### Caché (Redis)
+
+| Variable | Descripción | Default |
+|---|---|---|
+| `REDIS_URL` | URL de conexión a Redis (`redis://host:puerto`). Si la caché está habilitada, la app falla al iniciar si no puede conectar. | `redis://localhost:6379` |
+| `CACHE_POSTS_ENABLED` | Activa o desactiva la caché de posts. Con `false`, no se conecta a Redis y se usa `NoOpCacheStore` (todas las lecturas van directo a MongoDB). | `true` |
+| `CACHE_POSTS_TTL_SECONDS` | Tiempo de vida en segundos de cada entrada cacheada en Redis. Pasado ese tiempo, la clave expira y la próxima lectura vuelve a consultar MongoDB. Mínimo: 1 segundo. | `60` |
+
+### Docker Compose (opcionales)
+
+| Variable | Descripción | Default |
+|---|---|---|
+| `ME_USERNAME` | Usuario para autenticación de Mongo Express (interfaz web en el puerto 8081). En el `docker-compose.yml` actual la autenticación está deshabilitada (`ME_CONFIG_BASICAUTH=false`). | `admin` |
+| `ME_PASSWORD` | Contraseña para Mongo Express. Misma consideración que `ME_USERNAME`. | `admin1234` |
+
+### Ejemplo mínimo para desarrollo local
+
+```env
+PORT=3001
+MESES=6
+IDIOMA=es
+CACHE_POSTS_ENABLED=true
+CACHE_POSTS_TTL_SECONDS=60
+ENABLE_SWAGGER=true
+MONGO_URL=mongodb://admin:admin1234@localhost:27017/antiSocial?authSource=admin
+REDIS_URL=redis://localhost:6379
+```
+
+### Ejemplo con Docker
+
+Al usar `npm run docker:up`, Docker Compose sobreescribe `MONGO_URL` y `REDIS_URL` para apuntar a los contenedores internos (`mongodb`, `redis`). Solo hace falta definir en `.env` las credenciales de MongoDB y las variables de la aplicación:
+
+```env
+PORT=3001
+MESES=6
+MONGO_ROOT_USERNAME=admin
+MONGO_ROOT_PASSWORD=admin1234
+```
+
+## Endpoints
+
+### Usuarios — `/users`
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/users` | Listar usuarios |
+| `POST` | `/users` | Crear usuario |
+| `GET` | `/users/:id` | Obtener usuario por ID |
+| `PUT` | `/users/:id` | Actualizar usuario |
+| `DELETE` | `/users/:id` | Eliminar usuario |
+| `GET` | `/users/:id/followers` | Listar seguidores |
+| `GET` | `/users/:id/following` | Listar seguidos |
+| `POST` | `/users/:id/follow` | Seguir a un usuario (`follower_id` en body) |
+| `DELETE` | `/users/:id/follow/:follower_id` | Dejar de seguir |
+
+### Posts — `/posts`
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/posts` | Listar posts (`?user_id=` opcional, `?meses=` para filtrar comentarios) |
+| `POST` | `/posts` | Crear post (`description`, `user_id`, `tags[]` opcional) |
+| `GET` | `/posts/:id` | Obtener post por ID |
+| `PATCH` | `/posts/:id` | Actualizar post |
+| `DELETE` | `/posts/:id` | Eliminar post (y sus comentarios e imágenes) |
+| `GET` | `/posts/:id/images` | Listar imágenes del post |
+| `POST` | `/posts/:id/images` | Subir imagen (`multipart/form-data`, campo `image`) |
+| `PATCH` | `/posts/:id/images/:image_id` | Actualizar o mover imagen |
+| `DELETE` | `/posts/:id/images/:image_id` | Eliminar imagen |
+
+### Tags — `/tags`
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/tags` | Listar tags (`?post_id=` opcional) |
+| `POST` | `/tags` | Crear tag (`name`, `post_id` opcional) |
+| `GET` | `/tags/:id` | Obtener tag con sus posts |
+| `PATCH` | `/tags/:id` | Actualizar tag |
+| `DELETE` | `/tags/:id` | Eliminar tag |
+
+### Comentarios — `/comments`
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/comments` | Listar comentarios (`?post_id=` opcional) |
+| `POST` | `/comments` | Crear comentario |
+| `GET` | `/comments/:id` | Obtener comentario |
+| `PATCH` | `/comments/:id` | Actualizar comentario |
+| `DELETE` | `/comments/:id` | Eliminar comentario |
+
+### Archivos estáticos
+
+| Ruta | Descripción |
+|---|---|
+| `GET /uploads/*` | Acceso a imágenes subidas |
+
+## Documentación Swagger
+
+La API expone documentación interactiva en `/swagger` cuando existe el archivo `docs/swagger.yaml`. En entornos de desarrollo se habilita automáticamente; en producción se controla con `ENABLE_SWAGGER=true`.
+
+## Scripts disponibles
+
+| Script | Descripción |
+|---|---|
+| `npm start` | Inicia la API |
+| `npm run dev` | Inicia con nodemon (hot reload) |
+| `npm run docker:up` | Levanta Docker Compose |
+| `npm run docker:down` | Detiene contenedores |
+| `npm run docker:logs` | Logs de app, MongoDB y Redis |
+
+## Equipo
+
+**Coronados Tech** — Universidad de Hurlingham (UnaHur), 2026.
+
+| Integrante | DNI |
+|---|---|
+| Carla Andrea Pérez | 34.259.069 |
+| Malena Celeste Fernández Mansilla | 34.101.003 |
+| Rafael Alberto Barberi Salcedo | 95.151.120 |
+
+## Licencia
+
+MIT

@@ -1,8 +1,5 @@
-const { getRedis } = require("../config/redis");
-const i18n = require("../config/i18n");
+const { getCacheStore } = require("../config/cache");
 
-const enabled = process.env.CACHE_POSTS_ENABLED !== "false";
-const ttlSeconds = Math.max(1, Number(process.env.CACHE_POSTS_TTL_SECONDS || 60));
 const LIST_KEYS_SET = "posts:list-keys";
 
 const postKey = (id) => `post:${id}`;
@@ -17,61 +14,29 @@ const matchId = (a, b) => String(resolveId(a) ?? a) === String(resolveId(b) ?? b
 
 const isListKey = (key) => key === "posts:all" || key.startsWith("posts:user:");
 
-const get = async (key) => {
-    if (!enabled) return null;
+const store = () => getCacheStore();
 
-    try {
-        const raw = await getRedis().get(key);
-        if (!raw) return null;
-        return JSON.parse(raw);
-    } catch (err) {
-        console.error(i18n.__("redis_get_error", { error: err.message }));
-        return null;
-    }
-};
+const get = async (key) => store().get(key);
 
 const set = async (key, data) => {
-    if (!enabled) return;
+    await store().set(key, data);
 
-    try {
-        const redis = getRedis();
-        await redis.setEx(key, ttlSeconds, JSON.stringify(data));
-
-        if (isListKey(key)) {
-            await redis.sAdd(LIST_KEYS_SET, key);
-        }
-    } catch (err) {
-        console.error(i18n.__("redis_set_error", { error: err.message }));
+    if (isListKey(key)) {
+        await store().sAdd(LIST_KEYS_SET, key);
     }
 };
 
 const del = async (key) => {
-    if (!enabled) return;
+    await store().del(key);
 
-    try {
-        const redis = getRedis();
-        await redis.del(key);
-
-        if (isListKey(key)) {
-            await redis.sRem(LIST_KEYS_SET, key);
-        }
-    } catch (err) {
-        console.error(i18n.__("redis_del_error", { error: err.message }));
+    if (isListKey(key)) {
+        await store().sRem(LIST_KEYS_SET, key);
     }
 };
 
-const getListKeys = async () => {
-    try {
-        return await getRedis().sMembers(LIST_KEYS_SET);
-    } catch (err) {
-        console.error(i18n.__("redis_get_list_keys_error", { error: err.message }));
-        return [];
-    }
-};
+const getListKeys = async () => store().sMembers(LIST_KEYS_SET);
 
 const mutatePost = async (postId, mutator) => {
-    if (!enabled) return;
-
     const id = String(postId);
     const key = postKey(id);
 
@@ -152,9 +117,19 @@ const updatePostFields = async (postId, fields) =>
         Object.assign(post, fields);
     });
 
-const addPostToLists = async (post) => {
-    if (!enabled) return;
+const addTagToPost = async (postId, tag) =>
+    mutatePost(postId, (cached) => {
+        if (!Array.isArray(cached.tags)) {
+            cached.tags = [];
+        }
+        const tagId = tag._id ?? tag.id;
+        const exists = cached.tags.some((item) => String(item._id ?? item.id) === String(tagId));
+        if (!exists) {
+            cached.tags.push(tag);
+        }
+    });
 
+const addPostToLists = async (post) => {
     const id = String(resolveId(post));
 
     const allList = await get("posts:all");
@@ -175,8 +150,6 @@ const addPostToLists = async (post) => {
 };
 
 const removePostFromCaches = async (postId) => {
-    if (!enabled) return;
-
     const id = String(postId);
     await del(postKey(id));
 
@@ -192,34 +165,12 @@ const removePostFromCaches = async (postId) => {
     }
 };
 
-const deleteAll = async () => {
-    if (!enabled) return;
-
-    try {
-        const redis = getRedis();
-        const listKeys = await getListKeys();
-        const postKeys = await redis.keys("post:*");
-        const userListKeys = await redis.keys("posts:user:*");
-        const keysToDelete = [
-            ...new Set([...listKeys, ...postKeys, ...userListKeys, "posts:all", LIST_KEYS_SET]),
-        ];
-
-        if (keysToDelete.length) {
-            await redis.del(keysToDelete);
-        }
-    } catch (err) {
-        console.error(i18n.__("redis_delete_all_error", { error: err.message }));
-    }
-};
-
 module.exports = {
     get,
     set,
-    deletePost: removePostFromCaches,
-    deleteAll,
     removePostFromCaches,
     addPostToLists,
-    mutatePost,
+    addTagToPost,
     addComment,
     updateComment,
     removeComment,
@@ -228,6 +179,4 @@ module.exports = {
     removePostImage,
     movePostImage,
     updatePostFields,
-    isEnabled: () => enabled,
-    ttlSeconds: () => ttlSeconds,
 };

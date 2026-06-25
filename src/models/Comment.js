@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
-const { Schema } = mongoose;
+const { defaultSchemaOptions } = require("./schemaOptions");
 
-const commentSchema = new Schema(
+const commentSchema = new mongoose.Schema(
     {
         content: {
             type: String,
@@ -9,20 +9,17 @@ const commentSchema = new Schema(
             trim: true,
         },
         user_id: {
-            type: Schema.Types.ObjectId,
+            type: mongoose.Schema.Types.ObjectId,
             ref: "User",
             required: true,
         },
         post_id: {
-            type: Schema.Types.ObjectId,
+            type: mongoose.Schema.Types.ObjectId,
             ref: "Post",
             required: true,
         },
     },
-    {
-        timestamps: true,
-        versionKey: false,
-    }
+    defaultSchemaOptions,
 );
 
 const Comment = mongoose.model("Comment", commentSchema);

@@ -1,4 +1,5 @@
 const HTTP = require("../../config/HttpCode");
+const { sendValidationErrors } = require("../../helpers/validationError");
 
 const validateRequest = (schema, source, targetKey) => {
   return (req, res, next) => {
@@ -8,12 +9,14 @@ const validateRequest = (schema, source, targetKey) => {
       convert: true,
     });
     if (result.error) {
-      return res.status(HTTP.BAD_REQUEST).json({
-        errores: result.error.details.map((e) => ({
+      return sendValidationErrors(
+        res,
+        HTTP.BAD_REQUEST,
+        result.error.details.map((e) => ({
           atributo: e.path[0] || source,
           error: e.message,
         })),
-      });
+      );
     }
     req[targetKey] = result.value;
     next();

@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
-const { Schema } = mongoose;
+const { defaultSchemaOptions } = require("./schemaOptions");
 
-const postSchema = new Schema(
+const postSchema = new mongoose.Schema(
     {
         description: {
             type: String,
@@ -9,21 +9,18 @@ const postSchema = new Schema(
             trim: true,
         },
         user_id: {
-            type: Schema.Types.ObjectId,
+            type: mongoose.Schema.Types.ObjectId,
             ref: "User",
             required: true,
         },
         tags: [
             {
-                type: Schema.Types.ObjectId,
+                type: mongoose.Schema.Types.ObjectId,
                 ref: "Tag",
             }
         ],
     },
-    {
-        timestamps: true,
-        versionKey: false,
-    }
+    defaultSchemaOptions,
 );
 
 const Post = mongoose.model("Post", postSchema);

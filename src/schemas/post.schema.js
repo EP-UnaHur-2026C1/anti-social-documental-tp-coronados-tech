@@ -37,6 +37,10 @@ const updatePostSchema = Joi.object({
 
 const getAllPostsQuerySchema = Joi.object({
     user_id: userIdField.optional(),
+    meses: Joi.number().integer().min(1).optional().messages({
+        "number.base": "meses debe ser un número entero",
+        "number.min": "meses debe ser al menos {#limit}",
+    }),
 })
     .unknown(false)
     .messages({

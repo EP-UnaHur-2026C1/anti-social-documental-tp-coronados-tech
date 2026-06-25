@@ -1,10 +1,9 @@
 const HTTP = require("../../config/HttpCode");
+const { sendValidationError } = require("../../helpers/validationError");
 
 const requireImageMiddleware = (req, res, next) => {
   if (!req.file) {
-    return res.status(HTTP.BAD_REQUEST).json({
-      message: res.__("no_image_sent"),
-    });
+    return sendValidationError(res, HTTP.BAD_REQUEST, "image", res.__("no_image_sent"));
   }
   next();
 };
