@@ -29,7 +29,7 @@ const refreshTagsInCache = async (posts = []) => {
 const findAll = async ({ post_id } = {}) => {
     if (post_id !== undefined) {
         const post = await Post.findById(post_id).populate("tags");
-        return post?.tags?.map((tag) => tag.toJSON()) ?? [];
+        return post.tags.map((tag) => tag.toJSON());
     }
 
     const tags = await Tag.find();
@@ -38,8 +38,6 @@ const findAll = async ({ post_id } = {}) => {
 
 const findById = async (id) => {
     const tag = await Tag.findById(id);
-    if (!tag) return null;
-
     const [enriched] = await attachPosts([tag]);
     return enriched;
 };
@@ -56,7 +54,7 @@ const create = async ({ name, post_id }) => {
 
     if (post_id !== undefined) {
         const post = await Post.findById(post_id);
-        if (post && !post.tags.some((tagId) => tagId.toString() === tag._id.toString())) {
+        if (!post.tags.some((tagId) => tagId.toString() === tag._id.toString())) {
             post.tags.push(tag._id);
             await post.save();
         }
@@ -77,8 +75,6 @@ const create = async ({ name, post_id }) => {
 
 const update = async (id, { name }) => {
     const tag = await Tag.findById(id);
-    if (!tag) return null;
-    if (name === undefined) return { empty: true };
 
     const posts = await Post.find({ tags: id }).select("_id");
     tag.name = normalizeName(name);
@@ -90,13 +86,11 @@ const update = async (id, { name }) => {
 
 const remove = async (id) => {
     const tag = await Tag.findById(id);
-    if (!tag) return false;
 
     const posts = await Post.find({ tags: id });
     await Post.updateMany({ tags: id }, { $pull: { tags: id } });
     await tag.deleteOne();
     await refreshTagsInCache(posts);
-    return true;
 };
 
 module.exports = {

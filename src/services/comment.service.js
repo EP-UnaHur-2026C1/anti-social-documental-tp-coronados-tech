@@ -6,6 +6,11 @@ const serializeCommentForPostCache = async (comment) => {
     return comment.toObject();
 };
 
+const findAll = async ({ post_id } = {}) => {
+    const filter = post_id ? { post_id } : {};
+    return await Comment.find(filter).populate("user_id", "nickname name lastName");
+};
+
 const create = async ({ content, user_id, post_id }) => {
     const comment = await Comment.create({ content, user_id, post_id });
     const serialized = await serializeCommentForPostCache(comment);
@@ -19,8 +24,6 @@ const findById = async (id) => {
 
 const update = async (id, { content }) => {
     const comment = await Comment.findById(id);
-    if (!comment) return null;
-
     comment.content = content;
     await comment.save();
 
@@ -32,17 +35,15 @@ const update = async (id, { content }) => {
 
 const remove = async (id) => {
     const comment = await Comment.findById(id);
-    if (!comment) return false;
-
     const postId = comment.post_id;
     await comment.deleteOne();
     await postCache.removeComment(postId, id);
-    return true;
 };
 
 module.exports = {
-    create,
+    findAll,
     findById,
+    create,
     update,
     remove,
 };

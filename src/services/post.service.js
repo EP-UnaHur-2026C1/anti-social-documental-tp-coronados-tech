@@ -40,8 +40,6 @@ const attachRelations = async (posts) => {
 };
 
 const serializePost = async (post) => {
-    if (!post) return null;
-
     await post.populate([
         { path: "user_id", select: "nickname name lastName" },
         { path: "tags", select: "name" },
@@ -79,8 +77,6 @@ const findById = async (id) => {
     if (cached) return cached;
 
     const post = await Post.findById(id);
-    if (!post) return null;
-
     const serialized = await serializePost(post);
     await postCache.set(cacheKey, serialized);
     return serialized;
@@ -97,8 +93,6 @@ const create = async ({ description, user_id, tags }) => {
 
 const update = async (id, { description, tags }) => {
     const post = await Post.findById(id);
-    if (!post) return null;
-    if (description === undefined && tags === undefined) return { empty: true };
 
     if (description !== undefined) {
         post.description = description;
@@ -126,13 +120,11 @@ const update = async (id, { description, tags }) => {
 
 const remove = async (id) => {
     const post = await Post.findById(id);
-    if (!post) return false;
 
     await Comment.deleteMany({ post_id: id });
     await removeAllByPostId(id);
     await post.deleteOne();
     await postCache.removePostFromCaches(id);
-    return true;
 };
 
 module.exports = {

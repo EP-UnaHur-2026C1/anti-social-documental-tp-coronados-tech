@@ -4,29 +4,19 @@ dotenv.config();
 const express = require("express");
 const path = require("path");
 const fs = require("fs");
-const i18n = require("i18n");
+const i18n = require("./config/i18n");
 const connectDB = require("./config/db");
 const { connectRedis } = require("./config/redis");
 const errorMiddleware = require("./middlewares/error.middleware");
 const commentRoutes = require("./routes/comment.routes");
 const postImageRoutes = require("./routes/postImage.routes");
 
-const PORT = process.env.PORT || 3001;
-const locale = process.env.IDIOMA === "es" ? process.env.IDIOMA : "es";
-
-i18n.configure({
-    locales: ["es"],
-    directory: path.join(__dirname, "locales"),
-    defaultLocale: locale,
-    autoReload: true,
-    updateFiles: false,
-});
-
 const usersRouter = require("./routes/user.routes");
 const postsRouter = require("./routes/post.routes");
 const tagsRouter = require("./routes/tag.routes");
 
 const app = express();
+const PORT = process.env.PORT || 3001;
 
 const enableSwagger = process.env.NODE_ENV !== "production" || process.env.ENABLE_SWAGGER === "true";
 
@@ -46,7 +36,7 @@ if (enableSwagger) {
 }
 
 app.use("/users", usersRouter);
-app.use("/posts", postsRouter); 
+app.use("/posts", postsRouter);
 app.use("/tags", tagsRouter);
 app.use("/api/comments", commentRoutes);
 app.use("/api/post-images", postImageRoutes);

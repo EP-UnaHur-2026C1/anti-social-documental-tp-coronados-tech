@@ -1,4 +1,5 @@
 const { getRedis } = require("../config/redis");
+const i18n = require("../config/i18n");
 
 const enabled = process.env.CACHE_POSTS_ENABLED !== "false";
 const ttlSeconds = Math.max(1, Number(process.env.CACHE_POSTS_TTL_SECONDS || 60));
@@ -24,7 +25,7 @@ const get = async (key) => {
         if (!raw) return null;
         return JSON.parse(raw);
     } catch (err) {
-        console.error("Redis get error:", err.message);
+        console.error(i18n.__("redis_get_error", { error: err.message }));
         return null;
     }
 };
@@ -40,7 +41,7 @@ const set = async (key, data) => {
             await redis.sAdd(LIST_KEYS_SET, key);
         }
     } catch (err) {
-        console.error("Redis set error:", err.message);
+        console.error(i18n.__("redis_set_error", { error: err.message }));
     }
 };
 
@@ -55,7 +56,7 @@ const del = async (key) => {
             await redis.sRem(LIST_KEYS_SET, key);
         }
     } catch (err) {
-        console.error("Redis del error:", err.message);
+        console.error(i18n.__("redis_del_error", { error: err.message }));
     }
 };
 
@@ -63,7 +64,7 @@ const getListKeys = async () => {
     try {
         return await getRedis().sMembers(LIST_KEYS_SET);
     } catch (err) {
-        console.error("Redis getListKeys error:", err.message);
+        console.error(i18n.__("redis_get_list_keys_error", { error: err.message }));
         return [];
     }
 };
@@ -207,7 +208,7 @@ const deleteAll = async () => {
             await redis.del(keysToDelete);
         }
     } catch (err) {
-        console.error("Redis deleteAll error:", err.message);
+        console.error(i18n.__("redis_delete_all_error", { error: err.message }));
     }
 };
 

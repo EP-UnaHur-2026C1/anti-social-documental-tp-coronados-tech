@@ -1,4 +1,5 @@
 const { createClient } = require("redis");
+const i18n = require("./i18n");
 
 let client = null;
 
@@ -6,7 +7,7 @@ const isCacheEnabled = () => process.env.CACHE_POSTS_ENABLED !== "false";
 
 const connectRedis = async () => {
     if (!isCacheEnabled()) {
-        console.log("Caché de posts desactivada (CACHE_POSTS_ENABLED=false)");
+        console.log(i18n.__("redis_cache_disabled"));
         return null;
     }
 
@@ -14,17 +15,21 @@ const connectRedis = async () => {
     client = createClient({ url });
 
     client.on("error", (err) => {
-        console.error("Redis error:", err.message);
+        console.error(i18n.__("redis_client_error", { error: err.message }));
     });
 
-    await client.connect();
-    console.log("Redis conectado");
-    return client;
+    try {
+        await client.connect();
+        console.log(i18n.__("redis_connected"));
+        return client;
+    } catch (err) {
+        throw new Error(i18n.__("redis_connection_failed", { error: err.message }));
+    }
 };
 
 const getRedis = () => {
     if (!client) {
-        throw new Error("Redis no está conectado");
+        throw new Error(i18n.__("redis_not_connected"));
     }
     return client;
 };

@@ -38,5 +38,15 @@
   "error_delete_post_image_from_post": "Error al eliminar la imagen del post",
   "delete_post_image": "La imagen con id {{id}} eliminada correctamente",
   "delete_post_image_from_post": "La imagen con id {{imageId}} eliminada del post {{postId}}",
-  "post_image_not_in_post": "La imagen con id {{imageId}} no se encontró en el post {{postId}}"
+  "post_image_not_in_post": "La imagen con id {{imageId}} no se encontró en el post {{postId}}",
+  "redis_not_connected": "Redis no está conectado",
+  "redis_client_error": "Error de Redis: {{error}}",
+  "redis_connection_failed": "No se pudo conectar a Redis: {{error}}",
+  "redis_cache_disabled": "Caché de posts desactivada (CACHE_POSTS_ENABLED=false)",
+  "redis_connected": "Redis conectado",
+  "redis_get_error": "Error al leer de la caché Redis: {{error}}",
+  "redis_set_error": "Error al guardar en la caché Redis: {{error}}",
+  "redis_del_error": "Error al eliminar de la caché Redis: {{error}}",
+  "redis_get_list_keys_error": "Error al obtener las claves de listado de Redis: {{error}}",
+  "redis_delete_all_error": "Error al vaciar la caché Redis: {{error}}"
 }

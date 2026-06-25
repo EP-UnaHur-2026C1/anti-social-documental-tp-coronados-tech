@@ -1,8 +1,6 @@
-const { PostImage, Post } = require("../models");
+const { PostImage } = require("../models");
 const fs = require("fs");
 const postCache = require("./postCache.service");
-
-const findPost = (postId) => Post.findById(postId);
 
 const create = async ({ filename, path, post_id, postId }) => {
     const pid = post_id ?? postId;
@@ -12,42 +10,14 @@ const create = async ({ filename, path, post_id, postId }) => {
 };
 
 const findByPostId = async (postId) => {
-    const post = await findPost(postId);
-    if (!post) return { post: null, images: null };
-
-    const images = await PostImage.find({ post_id: postId });
-    return { post, images };
+    return PostImage.find({ post_id: postId });
 };
 
 const findById = (id) => PostImage.findById(id);
 
-const findScoped = async (id, postId) => {
-    const filter = { _id: id };
-    if (postId != null) filter.post_id = postId;
-
-    const postImage = await PostImage.findOne(filter);
-    if (postImage) return { postImage };
-
-    if (postId != null) {
-        const post = await findPost(postId);
-        if (!post) return { status: "post_not_found" };
-        return { status: "image_not_found" };
-    }
-
-    return { status: "not_found" };
-};
-
 const update = async (id, { postId, filename, path, newPostId }) => {
-    const scoped = await findScoped(id, postId);
-    if (scoped.status) return scoped;
-
-    const { postImage } = scoped;
+    const postImage = await PostImage.findOne({ _id: id, post_id: postId });
     const targetPostId = newPostId ?? postImage.post_id;
-
-    if (newPostId != null) {
-        const post = await findPost(newPostId);
-        if (!post) return { status: "post_not_found" };
-    }
 
     if (path && fs.existsSync(postImage.path)) {
         fs.unlinkSync(postImage.path);
@@ -66,7 +36,7 @@ const update = async (id, { postId, filename, path, newPostId }) => {
         await postCache.updatePostImage(targetPostId, id, imageJson);
     }
 
-    return { status: "ok", postImage };
+    return postImage;
 };
 
 const removeAllByPostId = async (post_id) => {
@@ -81,18 +51,15 @@ const removeAllByPostId = async (post_id) => {
     await PostImage.deleteMany({ post_id });
 };
 
-const remove = async (id, { postId } = {}) => {
-    const scoped = await findScoped(id, postId);
-    if (scoped.status) return scoped;
+const remove = async (id, { postId }) => {
+    const postImage = await PostImage.findOne({ _id: id, post_id: postId });
+    const { post_id, path } = postImage;
 
-    const { post_id, path } = scoped.postImage;
     if (fs.existsSync(path)) {
         fs.unlinkSync(path);
     }
-    await scoped.postImage.deleteOne();
+    await postImage.deleteOne();
     await postCache.removePostImage(post_id, id);
-
-    return { status: "ok" };
 };
 
 module.exports = {
