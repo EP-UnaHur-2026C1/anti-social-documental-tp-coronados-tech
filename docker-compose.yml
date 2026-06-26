@@ -59,6 +59,7 @@ services:
     volumes:
       - uploads_data:/app/uploads
       - ./src:/app/src
+      - ./docs:/app/docs
     depends_on:
       mongodb:
         condition: service_healthy

@@ -286,6 +286,30 @@ MONGO_ROOT_PASSWORD=admin1234
 
 La API expone documentación interactiva en `/swagger` cuando existe el archivo `docs/swagger.yaml`. En entornos de desarrollo se habilita automáticamente; en producción se controla con `ENABLE_SWAGGER=true`.
 
+## Colección Postman
+
+### Environment del equipo (Postman Cloud)
+
+Importá o activá el environment compartido del equipo:
+
+[Anti-Social Documental — Environment (Postman)](https://coronados-tech.postman.co/workspace/Team-Workspace~652ee97b-33f5-4d40-8e2c-de9ee3ff48e9/environment/55132673-ffb16956-4df0-40fa-9cae-fbf51c5e628e?action=share&creator=55132673&active-environment=55132673-ffb16956-4df0-40fa-9cae-fbf51c5e628e)
+
+### Archivos locales en `docs/`
+
+| Archivo | Descripción |
+|---|---|
+| `docs/Api-Antisocial.postman_collection.json` | Colección con todos los endpoints del TP documental |
+| `docs/Anti-Social-Documental.postman_environment.json` | Environment de respaldo para uso local (`http://localhost:3001`) |
+
+**Uso recomendado**
+
+1. Importar la colección desde `docs/Api-Antisocial.postman_collection.json`.
+2. Usar el environment de Postman Cloud (link arriba) o importar el JSON local.
+3. Crear un usuario (`POST /users`) y copiar el `id` (ObjectId de 24 caracteres) a las variables `user_id`, `post_id`, etc.
+4. Ejecutar el resto de requests en orden: posts → comentarios → tags → imágenes → followers.
+
+> **Nota:** En MongoDB los IDs son ObjectIds (ej. `507f1f77bcf86cd799439011`), no números enteros como en el TP relacional.
+
 ## Scripts disponibles
 
 | Script | Descripción |
